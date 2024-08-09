@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate Images</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <h1>Generate Images</h1>
+    <form id="generateForm" method="POST">
+        {% csrf_token %}
+        <input type="text" id="prompt1" name="prompt1" placeholder="Prompt 1" required>
+        <input type="text" id="prompt2" name="prompt2" placeholder="Prompt 2" required>
+        <input type="text" id="prompt3" name="prompt3" placeholder="Prompt 3" required>
+        <button type="submit">Generate</button>
+    </form>
+    <div id="status"></div>
+
+    <script>
+        $(document).ready(function() {
+            $('#generateForm').on('submit', function(e) {
+                e.preventDefault();
+                $.ajax({
+                    url: '',
+                    type: 'POST',
+                    data: $(this).serialize(),
+                    headers: {
+                        "X-CSRFToken": $("[name=csrfmiddlewaretoken]").val()
+                    },
+                    success: function(response) {
+                        $('#status').text(response.message);
+                        if (response.group_id) {
+                            checkStatus(response.group_id);
+                        }
+                    },
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        $('#status').text('Error starting tasks: ' + jqXHR.responseText);
+                    }
+                });
+            });
+
+            function checkStatus(groupId) {
+                $.ajax({
+                    url: '/task-status/' + groupId + '/',
+                    type: 'GET',
+                    success: function(response) {
+                        if (response.status === 'completed') {
+                            let resultHtml = 'Images generated:<br>';
+                            if (response.successful_results.length > 0) {
+                                resultHtml += 'Successful: ' + response.successful_results.join('<br>') + '<br>';
+                            }
+                            if (response.failed_results.length > 0) {
+                                resultHtml += 'Failed: ' + response.failed_results.join('<br>');
+                            }
+                            $('#status').html(resultHtml);
+                        } else if (response.status === 'pending') {
+                            $('#status').text('Generation in progress...');
+                            setTimeout(function() {
+                                checkStatus(groupId);
+                            }, 2000);
+                        } else {
+                            $('#status').text('Error: Task not found');
+                        }
+                    },
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        $('#status').text('Error checking task status: ' + textStatus + ' - ' + errorThrown);
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
